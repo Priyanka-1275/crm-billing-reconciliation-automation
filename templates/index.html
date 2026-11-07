@@ -1,0 +1,450 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bellhaven CRM Review Dashboard</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+            font-family: Arial, sans-serif;
+        }
+
+        body {
+            margin: 0;
+            padding: 30px;
+            background: #f3f5f9;
+            color: #222;
+        }
+
+        header { margin-bottom: 25px; }
+        header h1 { color: #172554; margin-bottom: 8px; }
+        .subtitle { color: #64748b; }
+
+        .summary {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin-bottom: 25px;
+        }
+
+        .stat {
+            background: white;
+            padding: 18px 24px;
+            border-radius: 10px;
+            min-width: 140px;
+            box-shadow: 0 2px 8px #0000000a;
+        }
+
+        .stat strong {
+            display: block;
+            font-size: 25px;
+            margin-top: 8px;
+        }
+
+        .reviewer-box, .audit-section {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 25px;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            max-width: 400px;
+            padding: 12px;
+            border: 1px solid #cbd5e1;
+            border-radius: 7px;
+            margin-top: 10px;
+        }
+
+        #proposals {
+            display: grid;
+            gap: 20px;
+        }
+
+        .proposal {
+            background: white;
+            border-radius: 12px;
+            padding: 22px;
+            box-shadow: 0 2px 8px #0000000a;
+        }
+
+        .proposal h2 { color: #1e3a8a; margin-top: 0; }
+
+        .evidence {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin: 18px 0;
+        }
+
+        .evidence-box {
+            background: #f8fafc;
+            padding: 15px;
+            border-radius: 8px;
+            overflow-wrap: anywhere;
+        }
+
+        .evidence-box h3 { margin-top: 0; font-size: 16px; }
+
+        .evidence-box p {
+            font-size: 14px;
+            line-height: 1.7;
+        }
+
+        .reason {
+            background: #eff6ff;
+            padding: 14px;
+            border-radius: 8px;
+            line-height: 1.6;
+            overflow-wrap: anywhere;
+        }
+
+        .status {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 20px;
+            background: #fef3c7;
+            color: #92400e;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .verification {
+            margin-top: 18px;
+            padding: 14px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+        }
+
+        .verification label {
+            display: flex;
+            gap: 10px;
+            line-height: 1.5;
+            cursor: pointer;
+        }
+
+        .verification input {
+            width: 17px;
+            height: 17px;
+        }
+
+        .actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 18px;
+        }
+
+        button {
+            border: none;
+            padding: 11px 20px;
+            border-radius: 7px;
+            color: white;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .approve { background: #15803d; }
+        .reject { background: #dc2626; }
+
+        button:disabled {
+            background: #94a3b8;
+            cursor: not-allowed;
+        }
+
+        .audit-entry {
+            padding: 15px;
+            border-bottom: 1px solid #e2e8f0;
+            line-height: 1.7;
+            overflow-wrap: anywhere;
+        }
+
+        .audit-entry:last-child { border-bottom: none; }
+
+        .error {
+            color: #dc2626;
+            padding: 12px;
+            background: #fee2e2;
+            border-radius: 8px;
+        }
+
+        @media(max-width: 600px) {
+            body { padding: 15px; }
+            .proposal { padding: 16px; }
+        }
+    </style>
+</head>
+
+<body>
+
+<header>
+    <h1>Bellhaven CRM Review Dashboard</h1>
+    <p class="subtitle">
+        Review website evidence and proposed CRM ownership corrections.
+    </p>
+    <p><strong>Mode:</strong> Local review only — CRM updates are disabled.</p>
+</header>
+
+<section class="summary">
+    <div class="stat">Total Proposals<strong id="total">0</strong></div>
+    <div class="stat">Pending<strong id="pending">0</strong></div>
+    <div class="stat">Approved<strong id="approved">0</strong></div>
+    <div class="stat">Rejected<strong id="rejected">0</strong></div>
+</section>
+
+<section class="reviewer-box">
+    <h3>Reviewer Information</h3>
+    <label for="reviewerName">Enter reviewer name:</label><br>
+    <input
+        type="text"
+        id="reviewerName"
+        placeholder="Enter your name"
+        maxlength="100"
+    >
+</section>
+
+<main id="proposals">Loading proposals...</main>
+
+<section class="audit-section">
+    <h2>Decision Audit History</h2>
+    <div id="auditLog">Loading audit history...</div>
+</section>
+
+<script>
+
+async function loadProposals() {
+    const container = document.getElementById("proposals");
+
+    try {
+        const response = await fetch("/api/proposals");
+
+        if (!response.ok) throw new Error("Could not load proposals");
+
+        const proposals = await response.json();
+
+        document.getElementById("total").textContent = proposals.length;
+        document.getElementById("pending").textContent =
+            proposals.filter(p => p.approval_status === "PENDING").length;
+        document.getElementById("approved").textContent =
+            proposals.filter(p => p.approval_status === "APPROVED").length;
+        document.getElementById("rejected").textContent =
+            proposals.filter(p => p.approval_status === "REJECTED").length;
+
+        container.innerHTML = "";
+
+        proposals.forEach(p => {
+            const w = p.website_evidence;
+            const c = p.crm_evidence;
+            const decided = p.approval_status !== "PENDING";
+
+            const card = document.createElement("article");
+            card.className = "proposal";
+
+            card.innerHTML = `
+                <h2>${escapeHTML(p.facility_name)}</h2>
+                <span class="status">${escapeHTML(p.approval_status)}</span>
+
+                <div class="evidence">
+                    <div class="evidence-box">
+                        <h3>Website Evidence</h3>
+                        <p>
+                            <strong>Address:</strong> ${escapeHTML(w.address)}<br>
+                            <strong>City:</strong> ${escapeHTML(w.city)}<br>
+                            <strong>State:</strong> ${escapeHTML(w.state)}<br>
+                            <strong>ZIP:</strong> ${escapeHTML(w.zip)}<br>
+                            <strong>Phone:</strong> ${escapeHTML(w.phone)}<br>
+                            <strong>Source:</strong>
+                            <a href="${safeURL(w.source_url)}"
+                               target="_blank" rel="noopener noreferrer">
+                               Open facility page
+                            </a>
+                        </p>
+                    </div>
+
+                    <div class="evidence-box">
+                        <h3>CRM Evidence</h3>
+                        <p>
+                            <strong>Account:</strong> ${escapeHTML(c.name)}<br>
+                            <strong>ID:</strong> ${escapeHTML(c.account_id)}<br>
+                            <strong>Parent:</strong> ${escapeHTML(c.parent_name || "None")}<br>
+                            <strong>Status:</strong> ${escapeHTML(c.status)}<br>
+                            <strong>Revenue:</strong> ${escapeHTML(c.lifetime_revenue)}<br>
+                            <strong>Outstanding AR:</strong> ${escapeHTML(c.outstanding_ar)}<br>
+                            <strong>Current account link:</strong> ${escapeHTML(c.chow_current_account || "None")}
+                        </p>
+                    </div>
+                </div>
+
+                <div class="reason">
+                    <strong>Proposed action:</strong>
+                    ${escapeHTML(p.proposed_action)}<br><br>
+                    <strong>Reason:</strong>
+                    ${escapeHTML(p.reason)}<br><br>
+                    <strong>Target parent ID:</strong>
+                    ${escapeHTML(p.target_parent_id)}
+                </div>
+
+                <div class="verification">
+                    <label>
+                        <input type="checkbox"
+                               class="ownership-checkbox"
+                               ${p.ownership_verified ? "checked" : ""}
+                               ${decided ? "disabled" : ""}>
+                        I have verified that this facility belongs to Bellhaven.
+                    </label>
+                </div>
+
+                ${decided ? `
+                    <p>
+                        <strong>Reviewer:</strong>
+                        ${escapeHTML(p.reviewer_name || "Not recorded")}<br>
+                        <strong>Decision time:</strong>
+                        ${escapeHTML(p.decided_at || "Not recorded")}
+                    </p>
+                ` : ""}
+
+                <div class="actions">
+                    <button class="approve" ${decided ? "disabled" : ""}>
+                        Approve
+                    </button>
+                    <button class="reject" ${decided ? "disabled" : ""}>
+                        Reject
+                    </button>
+                </div>
+            `;
+
+            container.appendChild(card);
+
+            card.querySelector(".approve").addEventListener("click", () => {
+                const checked = card.querySelector(".ownership-checkbox").checked;
+                decideProposal(p.proposal_id, "APPROVED", checked);
+            });
+
+            card.querySelector(".reject").addEventListener("click", () => {
+                const checked = card.querySelector(".ownership-checkbox").checked;
+                decideProposal(p.proposal_id, "REJECTED", checked);
+            });
+        });
+
+    } catch (error) {
+        container.innerHTML = `<div class="error">Could not load proposals. Check Flask.</div>`;
+        console.error(error);
+    }
+}
+
+function escapeHTML(value) {
+    return String(value ?? "").replace(/[&<>"']/g, char => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;",
+        '"': "&quot;", "'": "&#39;"
+    })[char]);
+}
+
+function safeURL(value) {
+    try {
+        const url = new URL(value);
+        return url.protocol === "https:" ? escapeHTML(url.href) : "#";
+    } catch {
+        return "#";
+    }
+}
+
+async function decideProposal(id, decision, ownershipVerified) {
+
+    const reviewer = document.getElementById("reviewerName").value.trim();
+
+    if (!reviewer) {
+        alert("Please enter the reviewer name first.");
+        return;
+    }
+
+    if (decision === "APPROVED" && ownershipVerified !== true) {
+        alert("Please verify ownership before approving.");
+        return;
+    }
+
+    if (!confirm(`Are you sure you want to ${decision.toLowerCase()} this proposal?`)) {
+        return;
+    }
+
+    try {
+        const response = await fetch(
+            `/api/proposals/${encodeURIComponent(id)}/decision`,
+            {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    decision,
+                    reviewer_name: reviewer,
+                    ownership_verified: decision === "APPROVED" && ownershipVerified
+                })
+            }
+        );
+
+        const result = await response.json();
+
+        if (!response.ok) {
+            alert(result.error || "Could not save decision.");
+            return;
+        }
+
+        alert(result.message + " No CRM changes were made.");
+
+        await loadProposals();
+        await loadAuditLog();
+
+    } catch (error) {
+        alert("Unable to contact Flask server.");
+        console.error(error);
+    }
+}
+
+async function loadAuditLog() {
+    const container = document.getElementById("auditLog");
+
+    try {
+        const response = await fetch("/api/audit");
+
+        if (!response.ok) throw new Error("Could not load audit history");
+
+        const entries = await response.json();
+
+        if (entries.length === 0) {
+            container.textContent = "No decisions recorded yet.";
+            return;
+        }
+
+        container.innerHTML = "";
+
+        entries.slice().reverse().forEach(entry => {
+            const div = document.createElement("div");
+            div.className = "audit-entry";
+
+            div.innerHTML = `
+                <strong>${escapeHTML(entry.facility_name)}</strong><br>
+                Decision: ${escapeHTML(entry.decision)}<br>
+                Reviewer: ${escapeHTML(entry.reviewer_name)}<br>
+                Ownership verified: ${entry.ownership_verified ? "Yes" : "No"}<br>
+                Date/time (UTC): ${escapeHTML(entry.decided_at)}<br>
+                CRM updated: No
+            `;
+
+            container.appendChild(div);
+        });
+
+    } catch (error) {
+        container.textContent = "Could not load audit history.";
+        console.error(error);
+    }
+}
+
+loadProposals();
+loadAuditLog();
+
+</script>
+
+</body>
+</html>

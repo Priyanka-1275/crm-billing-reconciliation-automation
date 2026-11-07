@@ -1,0 +1,15 @@
+﻿.env
+.env.*
+!.env.example
+
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+verification/data/
+unmatched_output.txt
+*.tmp
+
+instance/
+.DS_Store
